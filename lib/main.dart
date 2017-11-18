@@ -1,6 +1,8 @@
 import 'dart:math';
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:vector_math/vector_math_64.dart';
 // import 'dart:ui' show lerpDouble;
 
 void main() {
@@ -16,7 +18,7 @@ class MyApp extends StatelessWidget {
     return new MaterialApp(
       title: 'Flutter Demo',
       theme: new ThemeData(
-        primarySwatch: Colors.blue,
+//        primarySwatch: Colors.blue,
       ),
       home: new MyHomePage(title: 'The Matrix 3D'),
     );
@@ -49,6 +51,20 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
   AnimationController animation;
   String axis = 'Y';
 
+  ImmediateMultiDragGestureRecognizer _recognizer;
+
+  setMyTransform(Offset originOffset, DragUpdateDetails details) {
+    setState(() {
+      double x = originOffset.dx - details.globalPosition.dx;
+      double y = originOffset.dy - details.globalPosition.dy;
+      perspective..rotateX(x*0.001)..rotateY(y*0.001);
+
+
+//      AnimationController ac = new AnimationController(duration: 100)
+//      Curves.easeOut.transform();
+    });
+  }
+
   @override
   void initState() {
     super.initState();
@@ -61,6 +77,7 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
         });
       });
     rotation = 0.0;
+    _recognizer = new ImmediateMultiDragGestureRecognizer()..onStart = onStart;
   }
 
   void _spinZ() {
@@ -89,57 +106,82 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
     );
   }
 
+
+  onStart(Offset offset) {
+    return new MyDrag(this);
+  }
+
   @override
-  Widget build(BuildContext context) {
-    return new Transform(
-        transform: perspective.multiplied(axis == 'X'
-            ? new Matrix4.rotationX(rotation / 4)
-            : (axis == 'Y'
-                ? new Matrix4.rotationY(rotation / 4)
-                : new Matrix4.rotationZ(rotation / 4))),
+  Widget build(BuildContext context) => new Center(
+          child: new Transform(
+        transform: perspective,
         alignment: FractionalOffset.center,
-        child: new GestureDetector(
-            onVerticalDragEnd: _spinX,
-            onHorizontalDragEnd: _spinY,
-            child: new Center(
-                child: new Scaffold(
-                    appBar: new AppBar(
-                      title: new Text(widget.title),
-                    ),
-                    floatingActionButton: new FloatingActionButton(
-                      onPressed: _spinZ,
-                      tooltip: 'Spin',
-                      child: new Icon(Icons.replay),
-                    ),
-                    body: new Center(
-                      child: new Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: <Widget>[
-                          new FloatingActionButton(
-                            onPressed: () => setState(() {
-                                  if (counter < MAX_ABS_PERSPECTIVE) {
-                                    perspective = _xmat(++counter);
-                                  }
-                                }),
-                            tooltip: 'Increment',
-                            child: new Icon(Icons.arrow_upward),
-                          ),
-                          new Text(' '),
-                          new Text("Perspective: $counter",
-                              style: DefaultTextStyle.of(context).style.apply(
-                                  fontSizeFactor: 0.3 + (counter.abs() * .1))),
-                          new Text(' '),
-                          new FloatingActionButton(
-                            onPressed: () => setState(() {
-                                  if (counter > -MAX_ABS_PERSPECTIVE) {
-                                    perspective = _xmat(--counter);
-                                  }
-                                }),
-                            tooltip: 'Decrement',
-                            child: new Icon(Icons.arrow_downward),
-                          ),
-                        ],
+        child: new Listener(
+          onPointerDown: _routePointer,
+          child: new GestureDetector(
+              child: new Center(
+                  child: new Scaffold(
+                      appBar: new AppBar(
+                        title: new Text(widget.title),
                       ),
-                    )))));
+                      floatingActionButton: new FloatingActionButton(
+                        onPressed: _spinZ,
+                        tooltip: 'Spin',
+                        child: new Icon(Icons.replay),
+                      ),
+                      body: new Center(
+                        child: new Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: <Widget>[
+                            new FloatingActionButton(
+                              onPressed: () => setState(() {
+                                    if (counter < MAX_ABS_PERSPECTIVE) {
+                                      perspective = _xmat(++counter);
+                                    }
+                                  }),
+                              elevation: 30.0,
+                              tooltip: 'Increment',
+                              child: new Icon(Icons.arrow_upward),
+                            ),
+                            new Text(' '),
+                            new Text("Perspective: $counter",
+                                style: DefaultTextStyle.of(context).style.apply(
+                                    fontSizeFactor:
+                                        0.3 + (counter.abs() * .1))),
+                            new Text(' '),
+                            new FloatingActionButton(
+                              onPressed: () => setState(() {
+                                    if (counter > -MAX_ABS_PERSPECTIVE) {
+                                      perspective = _xmat(--counter);
+                                    }
+                                  }),
+                              elevation: 2.0,
+                              tooltip: 'Decrement',
+                              child: new Icon(Icons.arrow_downward),
+                            ),
+                          ],
+                        ),
+                      )))),
+        ),
+      ));
+
+  void _routePointer(PointerEvent event) {
+    _recognizer.addPointer(event);
+  }
+}
+
+class MyDrag extends Drag {
+  _MyHomePageState state;
+  bool start = false;
+  Offset originOffset;
+  MyDrag(this.state) {
+   start = true;
+  }
+  void update(DragUpdateDetails details) {
+    if(start) {
+      originOffset = details.globalPosition;
+      start = false;
+    }
+    state.setMyTransform(originOffset, details);
   }
 }
